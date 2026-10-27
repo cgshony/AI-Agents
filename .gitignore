@@ -1,0 +1,16 @@
+.env
+reference/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs (e.g. MCP server stderr)
+*.log
+
+# Downloaded evaluation data
+evals/gaia/data/
