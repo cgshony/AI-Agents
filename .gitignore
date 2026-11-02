@@ -13,4 +13,9 @@ __pycache__/
 *.log
 
 # Downloaded evaluation data
-evals/gaia/data/
+data/
+
+# Scratch files the agent creates while solving GAIA tasks
+gaia_workspace/
+
+scratch_agents-end-to-end/

@@ -27,7 +27,7 @@ PROVIDER_SEMAPHORES = {
 
 def get_provider(model: str) -> str:
     """Extract provider name from model string."""
-    return "anthropic" if model.startswith("anthropic/") else "openai"
+    return "anthropic" if model.startswith(("anthropic/", "claude")) else "openai"
 
 def is_correct(prediction: str | None, answer: str) -> bool:
     """Check exact match between prediction and answer (case-insensitive)."""
@@ -87,8 +87,8 @@ async def evaluate_gaia_single(problem: dict, model: str) -> dict:
 
 async def evaluate_gaia_agent_single(problem: dict, model: str, tools: list) -> dict:
     """Evaluate one problem using the full Agent loop and optional tools."""
-    from agents.agent import Agent
-    from agents.llm import LlmClient
+    from agents_bundle.react_agent import Agent
+    from agents_bundle.llm_client import LlmClient
 
     try:
         agent = Agent(
