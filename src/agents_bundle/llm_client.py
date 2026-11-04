@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type, Union
 
 from litellm import acompletion
 from pydantic import BaseModel, Field
@@ -23,6 +23,10 @@ class LlmRequest(BaseModel):
     tools: List[BaseTool] = Field(default_factory=list)
     tool_choice: Optional[str] = None
     model_id: Optional[str] = None
+
+    def append_instructions(self, text: str) -> None:
+        """Append one instruction (system prompt) string, e.g. injected memories or a summary."""
+        self.instructions.append(text)
 
 
 class LlmResponse(BaseModel):
@@ -96,6 +100,50 @@ class LlmClient:
             return self._parse_response(response)
         except Exception as e:
             return LlmResponse(error_message=str(e))
+
+    async def ask(
+        self,
+        prompt: str,
+        response_format: Optional[Type[BaseModel]] = None,
+    ) -> Union[str, BaseModel]:
+        """One-shot prompt with optional structured (Pydantic) output.
+
+        With response_format, the JSON schema is put in the prompt and the reply is
+        parsed into that Pydantic model. Used for memory extraction, duplicate
+        checks and summarization, where the caller needs data rather than prose.
+        """
+        if response_format is not None:
+            schema_text = json.dumps(response_format.model_json_schema())
+            instruction = (
+                f"{prompt}\n\nRespond ONLY with valid JSON matching this schema:\n"
+                f"{schema_text}"
+            )
+        else:
+            instruction = prompt
+
+        request = LlmRequest(
+            model_id=self.model,
+            instructions=[instruction],
+            contents=[Message(role="user", content="Please respond.")],
+        )
+        response = await self.generate(request)
+        if response.error_message:
+            raise RuntimeError(f"LLM request failed: {response.error_message}")
+
+        text = next(
+            (item.content for item in response.content if isinstance(item, Message)),
+            "",
+        )
+        if response_format is None:
+            return text
+
+        # Models sometimes wrap JSON in ```json fences; strip them
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+            if cleaned.endswith("```"):
+                cleaned = cleaned.rsplit("```", 1)[0]
+        return response_format.model_validate_json(cleaned.strip())
 
     def _parse_response(self, response) -> LlmResponse:
         """Convert API response to LlmResponse."""
